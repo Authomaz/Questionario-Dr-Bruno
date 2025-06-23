@@ -3,17 +3,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Questionário - Dr. Bruno Paschoalini</title>
-    <!-- Incluindo Tailwind CSS para um design moderno e responsivo -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Estilos personalizados adicionais */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* bg-slate-50 */
+            background-color: #f8fafc;
         }
         
-        /* Estilos para os radio buttons das perguntas de inflamação */
         .inflammation-radio input[type="radio"] {
             display: none;
         }
@@ -44,7 +41,6 @@
             color: white;
         }
         
-        /* Estilos para os radio buttons das perguntas de saúde mental */
         .mental-radio input[type="radio"] {
             display: none;
         }
@@ -70,19 +66,28 @@
             border-color: #059669;
             color: white;
         }
+
+        .question-required {
+            border-left: 4px solid #ef4444;
+        }
+        
+        .validation-error {
+            color: #ef4444;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
     </style>
 </head>
 <body class="text-gray-800">
 
     <div class="container mx-auto p-4 sm:p-6 md:p-8 max-w-4xl">
-        <!-- Cabeçalho -->
         <header class="text-center mb-8">
             <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">Dr. Bruno Paschoalini</h1>
             <p class="text-xl text-gray-700 mt-2">Questionário de Inflamação e Risco Mental</p>
         </header>
 
         <form action="https://formspree.io/f/mrbkybwj" method="POST" id="questionnaireForm">
-            <!-- Seção de Dados Pessoais -->
+            <!-- Dados Pessoais -->
             <div class="bg-white p-6 rounded-2xl shadow-sm mb-6">
                 <h2 class="text-2xl font-semibold mb-4 border-b pb-2">Seus Dados</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -119,13 +124,21 @@
                 <div id="mental-risk-questions" class="space-y-4"></div>
             </div>
 
-            <!-- Campos ocultos para os escores calculados -->
-            <input type="hidden" id="escore_inflamacao" name="escore_inflamacao" value="0">
+            <!-- Campos ocultos organizados para o email -->
+            <input type="hidden" name="_subject" value="Novo Questionário - Dr. Bruno Paschoalini">
+            <input type="hidden" id="data_preenchimento" name="data_preenchimento" value="">
+            <input type="hidden" id="escore_inflamacao" name="escore_inflamacao" value="">
             <input type="hidden" id="nivel_inflamacao" name="nivel_inflamacao" value="">
-            <input type="hidden" id="escore_risco_mental" name="escore_risco_mental" value="0">
+            <input type="hidden" id="escore_risco_mental" name="escore_risco_mental" value="">
             <input type="hidden" id="nivel_risco_mental" name="nivel_risco_mental" value="">
+            <input type="hidden" id="respostas_inflamacao" name="respostas_inflamacao" value="">
+            <input type="hidden" id="respostas_risco_mental" name="respostas_risco_mental" value="">
 
-            <!-- Botão de Cálculo e Status -->
+            <!-- Validação e Botão -->
+            <div id="validation-error" class="validation-error mb-4 text-center hidden">
+                Por favor, responda todas as perguntas antes de continuar.
+            </div>
+
             <div class="text-center">
                 <button type="submit" id="calculateButton" class="bg-cyan-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-cyan-700 focus:outline-none focus:ring-4 focus:ring-cyan-300 transition-all duration-300 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
                     Calcular e Enviar Resultados
@@ -134,28 +147,45 @@
             </div>
         </form>
 
-        <!-- Seção de Resultado (inicialmente oculta) -->
+        <!-- Seção de Resultado -->
         <div id="result-section" class="hidden bg-white p-6 rounded-2xl shadow-sm mt-8 border-t-4 border-cyan-500">
              <h2 class="text-2xl font-semibold mb-4 text-center">Seus Resultados</h2>
              <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-center">
-                <!-- Resultado Inflamação -->
                 <div id="inflammation-result" class="p-4 rounded-lg">
                     <h3 class="text-lg font-semibold text-gray-700">Escore de Inflamação</h3>
                     <p id="inflammation-score" class="text-5xl font-bold my-2"></p>
                     <p id="inflammation-level" class="text-xl font-medium"></p>
                 </div>
-                <!-- Resultado Risco Mental -->
                 <div id="mental-risk-result" class="p-4 rounded-lg">
                     <h3 class="text-lg font-semibold text-gray-700">Risco Mental</h3>
                     <p id="mental-risk-score" class="text-5xl font-bold my-2"></p>
                     <p id="mental-risk-level" class="text-xl font-medium"></p>
                 </div>
              </div>
+             <div class="text-center mt-6">
+                <p class="text-gray-600">Resultados calculados e prontos para envio!</p>
+             </div>
         </div>
     </div>
 
 <script>
-    // --- DADOS DOS QUESTIONÁRIOS ---
+    // CONFIGURAÇÕES PARAMETRIZADAS - Facilita ajustes futuros
+    const SCORING_CONFIG = {
+        inflammation: {
+            normal: { min: 0, max: 9, label: 'Normal' },
+            leve: { min: 10, max: 49, label: 'Leve' },
+            moderada: { min: 50, max: 99, label: 'Moderada' },
+            grave: { min: 100, max: Infinity, label: 'Grave' }
+        },
+        mentalRisk: {
+            ideal: { min: 0, max: 0, label: 'Ideal' },
+            leve: { min: 1, max: 9, label: 'Leve' },
+            moderado: { min: 10, max: 20, label: 'Moderado' },
+            grave: { min: 21, max: Infinity, label: 'Grave' }
+        }
+    };
+
+    // DADOS DOS QUESTIONÁRIOS
     const inflammationData = [
         { title: "Trato Digestivo", questions: ["Náusea ou vômitos", "Diarréia", "Constipação / prisão de ventre", "Estufamento abdominal", "Arrotos ou gases", "Queimação (azia) no peito", "Dor estomacal / intestinal"] },
         { title: "Energia / Atividade", questions: ["Fadiga ou lentidão", "Apatia, letargia", "Hiperatividade", "Inquietude, dificuldade em relaxar"] },
@@ -178,9 +208,6 @@
         "Eu como pão quase diariamente", "Tomo suco de frutas (de qualquer tipo)", "Como mais de três frutas por dia", "Uso adoçante artificial", "Caminho menos de 50 min/dia na maior parte dos dias", "Fico ofegante ao caminhar", "Como pouca salada", "Estou acima do peso (IMC > 24.9)", "Como arroz, massa ou pão à noite", "Tomo leite pasteurizado", "Tenho histórico familiar de problemas neurológicos", "Evito comer gorduras de qualquer tipo", "Tomo remédio para colesterol", "Tomo refrigerante (seja diet ou normal)", "Tomo pouca água (menos de 2 litros por dia)", "Tomo cerveja", "Como cereais (aveia, granola, musli, sucrilhos, trigo, etc)", "Tive problemas auditivos por 10 anos", "Durmo com celular no quarto", "Fumei pelo menos 10 anos", "Tive depressão/ansiedade por 10 anos", "Tomei remédio para dormir por 10 anos", "Ronco à noite e/ou tenho apnéia do sono", "Minha pressão é maior que 120/80 mmHg às vezes", "Meu colesterol HDL é inferior a 50 mg/dl", "Minha vitamina B12 é inferior a 500 pg/ml", "Minha vitamina D é inferior a 50 ng/dl", "Minha glicose é superior a 89 mg/ml", "Minha insulina de jejum é > 6 uU/ml", "Minha homocisteína é > 7 micromol/L", "Meu PCR-us é > 0.7 mg/dL"
     ];
 
-    /**
-     * Função auxiliar para criar um elemento HTML
-     */
     function createElement(tag, classes = [], text = '') {
         const element = document.createElement(tag);
         if (classes.length) element.classList.add(...classes);
@@ -188,61 +215,70 @@
         return element;
     }
 
-    /**
-     * Inicializa o formulário, criando e inserindo as perguntas na página.
-     */
     function initializeForm() {
         const inflammationContainer = document.getElementById('inflammation-questions');
         const mentalRiskContainer = document.getElementById('mental-risk-questions');
-        let questionIndex = 0; // Usar um único índice para nomes únicos
+        
+        // ÍNDICES SEPARADOS para evitar colisão
+        let inflammationIndex = 0;
+        let mentalRiskIndex = 0;
 
-        inflammationData.forEach(category => {
+        // Gerar perguntas de inflamação
+        inflammationData.forEach((category, categoryIndex) => {
+            // Cabeçalho da categoria
+            const categoryHeader = createElement('h3', ['text-lg', 'font-semibold', 'text-gray-800', 'mt-6', 'mb-3', 'border-b', 'border-gray-200', 'pb-1'], category.title);
+            inflammationContainer.appendChild(categoryHeader);
+
             category.questions.forEach(q => {
-                const questionWrapper = createElement('div', ['flex', 'flex-col', 'sm:flex-row', 'sm:items-center', 'sm:justify-between', 'py-2', 'border-b', 'border-gray-200', 'last:border-0']);
-                const questionName = `inflamacao_${questionIndex}`; 
-                const label = createElement('label', ['flex-1', 'mr-4', 'text-sm', 'mb-2', 'sm:mb-0'], q);
+                const questionWrapper = createElement('div', ['flex', 'flex-col', 'sm:flex-row', 'sm:items-center', 'sm:justify-between', 'py-3', 'border-b', 'border-gray-100', 'last:border-0']);
+                const questionName = `inflamacao_${inflammationIndex}`;
+                
+                const label = createElement('label', ['flex-1', 'mr-4', 'text-sm', 'mb-2', 'sm:mb-0', 'font-medium'], q);
                 const radioGroup = createElement('div', ['flex', 'items-center', 'space-x-2', 'inflammation-radio']);
                 
+                // Criar radio buttons SEM pré-seleção
                 for (let i = 0; i <= 4; i++) {
-                    const radioId = `q-${questionIndex}-${i}`;
+                    const radioId = `infl-${inflammationIndex}-${i}`;
                     const radioInput = createElement('input');
                     radioInput.type = 'radio';
                     radioInput.name = questionName;
                     radioInput.id = radioId;
                     radioInput.value = i;
-                    if (i === 0) radioInput.checked = true;
+                    radioInput.required = true; // Obrigatório responder
                     
                     const radioLabel = createElement('label', [], i.toString());
                     radioLabel.htmlFor = radioId;
                     
                     radioGroup.append(radioInput, radioLabel);
                 }
+                
                 questionWrapper.append(label, radioGroup);
                 inflammationContainer.appendChild(questionWrapper);
-                questionIndex++;
+                inflammationIndex++;
             });
         });
 
+        // Gerar perguntas de risco mental
         mentalRiskData.forEach(q => {
-            const questionWrapper = createElement('div', ['flex', 'flex-col', 'sm:flex-row', 'sm:items-center', 'sm:justify-between', 'p-3', 'border', 'border-gray-200', 'rounded-lg']);
-            const label = createElement('label', ['flex-1', 'mr-4', 'text-sm', 'mb-2', 'sm:mb-0'], q);
+            const questionWrapper = createElement('div', ['flex', 'flex-col', 'sm:flex-row', 'sm:items-center', 'sm:justify-between', 'p-3', 'border', 'border-gray-200', 'rounded-lg', 'mb-2']);
+            const label = createElement('label', ['flex-1', 'mr-4', 'text-sm', 'mb-2', 'sm:mb-0', 'font-medium'], q);
             const radioGroup = createElement('div', ['flex', 'items-center', 'space-x-2', 'mental-radio']);
-            const questionName = `risco_mental_${questionIndex}`; 
+            const questionName = `risco_mental_${mentalRiskIndex}`;
 
             // Opção "Não"
-            const radioNoId = `q-${questionIndex}-0`;
+            const radioNoId = `risk-${mentalRiskIndex}-0`;
             const radioNoInput = createElement('input');
             radioNoInput.type = 'radio';
             radioNoInput.name = questionName;
             radioNoInput.id = radioNoId;
             radioNoInput.value = '0';
-            radioNoInput.checked = true;
+            radioNoInput.required = true; // Obrigatório responder
             
             const radioNoLabel = createElement('label', [], 'Não');
             radioNoLabel.htmlFor = radioNoId;
 
             // Opção "Sim"
-            const radioYesId = `q-${questionIndex}-1`;
+            const radioYesId = `risk-${mentalRiskIndex}-1`;
             const radioYesInput = createElement('input');
             radioYesInput.type = 'radio';
             radioYesInput.name = questionName;
@@ -255,64 +291,116 @@
             radioGroup.append(radioNoInput, radioNoLabel, radioYesInput, radioYesLabel);
             questionWrapper.append(label, radioGroup);
             mentalRiskContainer.appendChild(questionWrapper);
-            questionIndex++;
+            mentalRiskIndex++;
         });
     }
 
-    /**
-     * Calcula os escores e atualiza os campos ocultos
-     */
+    function validateAllQuestionsAnswered() {
+        const form = document.getElementById('questionnaireForm');
+        const allInputs = form.querySelectorAll('input[type="radio"]');
+        const questionNames = new Set();
+        
+        // Coletar todos os nomes únicos das perguntas
+        allInputs.forEach(input => {
+            if (input.name.startsWith('inflamacao_') || input.name.startsWith('risco_mental_')) {
+                questionNames.add(input.name);
+            }
+        });
+
+        // Verificar se cada pergunta tem uma resposta
+        for (const questionName of questionNames) {
+            const checkedInput = form.querySelector(`input[name="${questionName}"]:checked`);
+            if (!checkedInput) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function getScoreLevel(score, config) {
+        for (const [key, range] of Object.entries(config)) {
+            if (score >= range.min && score <= range.max) {
+                return range.label;
+            }
+        }
+        return 'Indefinido';
+    }
+
     function calculateScores() {
         const form = document.getElementById('questionnaireForm');
         const formData = new FormData(form);
         
         let inflammationTotal = 0;
         let mentalRiskTotal = 0;
+        let inflammationResponses = [];
+        let mentalRiskResponses = [];
         
-        // Contar questões de inflamação (começam com 'inflamacao_')
-        for (let [key, value] of formData.entries()) {
-            if (key.startsWith('inflamacao_')) {
-                inflammationTotal += Number(value);
-            } else if (key.startsWith('risco_mental_')) {
-                mentalRiskTotal += Number(value);
+        // Processar respostas organizadas por categoria
+        let inflIndex = 0;
+        inflammationData.forEach(category => {
+            const categoryResponses = {
+                categoria: category.title,
+                respostas: []
+            };
+            
+            category.questions.forEach(question => {
+                const questionName = `inflamacao_${inflIndex}`;
+                const value = formData.get(questionName);
+                if (value !== null) {
+                    inflammationTotal += Number(value);
+                    categoryResponses.respostas.push({
+                        pergunta: question,
+                        resposta: value
+                    });
+                }
+                inflIndex++;
+            });
+            
+            if (categoryResponses.respostas.length > 0) {
+                inflammationResponses.push(categoryResponses);
             }
-        }
+        });
 
-        // Determinar níveis
-        let inflammationLevel;
-        if (inflammationTotal < 10) inflammationLevel = 'Normal';
-        else if (inflammationTotal < 50) inflammationLevel = 'Leve';
-        else if (inflammationTotal < 100) inflammationLevel = 'Moderada';
-        else inflammationLevel = 'Grave';
+        // Processar respostas de risco mental
+        mentalRiskData.forEach((question, index) => {
+            const questionName = `risco_mental_${index}`;
+            const value = formData.get(questionName);
+            if (value !== null) {
+                mentalRiskTotal += Number(value);
+                mentalRiskResponses.push({
+                    pergunta: question,
+                    resposta: value === '1' ? 'Sim' : 'Não'
+                });
+            }
+        });
 
-        let mentalRiskLevel;
-        if (mentalRiskTotal === 0) mentalRiskLevel = 'Ideal';
-        else if (mentalRiskTotal <= 9) mentalRiskLevel = 'Leve';
-        else if (mentalRiskTotal <= 20) mentalRiskLevel = 'Moderado';
-        else mentalRiskLevel = 'Grave';
+        // Calcular níveis usando configuração parametrizada
+        const inflammationLevel = getScoreLevel(inflammationTotal, SCORING_CONFIG.inflammation);
+        const mentalRiskLevel = getScoreLevel(mentalRiskTotal, SCORING_CONFIG.mentalRisk);
 
-        // Atualizar campos ocultos
+        // Atualizar campos ocultos com dados organizados
+        document.getElementById('data_preenchimento').value = new Date().toLocaleString('pt-BR');
         document.getElementById('escore_inflamacao').value = inflammationTotal;
         document.getElementById('nivel_inflamacao').value = inflammationLevel;
         document.getElementById('escore_risco_mental').value = mentalRiskTotal;
         document.getElementById('nivel_risco_mental').value = mentalRiskLevel;
+        document.getElementById('respostas_inflamacao').value = JSON.stringify(inflammationResponses, null, 2);
+        document.getElementById('respostas_risco_mental').value = JSON.stringify(mentalRiskResponses, null, 2);
 
         return { inflammationTotal, mentalRiskTotal, inflammationLevel, mentalRiskLevel };
     }
 
-    /**
-     * Exibe os resultados calculados na tela.
-     */
     function displayResults(inflammationTotal, mentalRiskTotal, inflammationLevel, mentalRiskLevel) {
         const resultSection = document.getElementById('result-section');
         const inflammationScoreEl = document.getElementById('inflammation-score');
         const inflammationLevelEl = document.getElementById('inflammation-level');
         const inflammationResultEl = document.getElementById('inflammation-result');
         
+        // Cores baseadas nos níveis parametrizados
         let iColorClass;
-        if (inflammationTotal < 10) iColorClass = 'bg-green-100 text-green-700';
-        else if (inflammationTotal < 50) iColorClass = 'bg-yellow-100 text-yellow-700';
-        else if (inflammationTotal < 100) iColorClass = 'bg-orange-100 text-orange-700';
+        if (inflammationLevel === 'Normal') iColorClass = 'bg-green-100 text-green-700';
+        else if (inflammationLevel === 'Leve') iColorClass = 'bg-yellow-100 text-yellow-700';
+        else if (inflammationLevel === 'Moderada') iColorClass = 'bg-orange-100 text-orange-700';
         else iColorClass = 'bg-red-100 text-red-700';
 
         inflammationScoreEl.textContent = inflammationTotal;
@@ -325,9 +413,9 @@
         const mentalRiskResultEl = document.getElementById('mental-risk-result');
         
         let mColorClass;
-        if (mentalRiskTotal === 0) mColorClass = 'bg-green-100 text-green-700';
-        else if (mentalRiskTotal <= 9) mColorClass = 'bg-yellow-100 text-yellow-700';
-        else if (mentalRiskTotal <= 20) mColorClass = 'bg-orange-100 text-orange-700';
+        if (mentalRiskLevel === 'Ideal') mColorClass = 'bg-green-100 text-green-700';
+        else if (mentalRiskLevel === 'Leve') mColorClass = 'bg-yellow-100 text-yellow-700';
+        else if (mentalRiskLevel === 'Moderado') mColorClass = 'bg-orange-100 text-orange-700';
         else mColorClass = 'bg-red-100 text-red-700';
 
         mentalRiskScoreEl.textContent = `${mentalRiskTotal} / ${mentalRiskData.length}`;
@@ -339,29 +427,38 @@
         resultSection.scrollIntoView({ behavior: 'smooth' });
     }
 
-    // --- LÓGICA PRINCIPAL ---
+    // INICIALIZAÇÃO E EVENTO PRINCIPAL
     document.addEventListener('DOMContentLoaded', () => {
-        // 1. Gera o formulário quando a página carrega
         initializeForm();
         
         const form = document.getElementById('questionnaireForm');
         const calculateButton = document.getElementById('calculateButton');
         const submitStatus = document.getElementById('submit-status');
+        const validationError = document.getElementById('validation-error');
 
-        // 2. Define o que acontece ao enviar o formulário
+        // INTERCEPTAR SUBMIT COM VALIDAÇÃO OBRIGATÓRIA
         form.addEventListener('submit', async (event) => {
-            event.preventDefault();
+            event.preventDefault(); // SEMPRE prevenir envio automático
             
-            // Calcular escores antes do envio
+            // 1. Validar se todas as perguntas foram respondidas
+            if (!validateAllQuestionsAnswered()) {
+                validationError.classList.remove('hidden');
+                validationError.scrollIntoView({ behavior: 'smooth' });
+                return;
+            }
+            
+            validationError.classList.add('hidden');
+            
+            // 2. Calcular escores
             const { inflammationTotal, mentalRiskTotal, inflammationLevel, mentalRiskLevel } = calculateScores();
             
-            // Exibir resultados
+            // 3. Exibir resultados ANTES do envio
             displayResults(inflammationTotal, mentalRiskTotal, inflammationLevel, mentalRiskLevel);
             
-            // Aguardar um momento para o usuário ver os resultados
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // 4. Aguardar usuário ver os resultados
+            await new Promise(resolve => setTimeout(resolve, 2000));
             
-            // Agora enviar o formulário
+            // 5. Enviar formulário
             calculateButton.disabled = true;
             submitStatus.textContent = 'Enviando resultados...';
             
